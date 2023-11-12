@@ -1,5 +1,4 @@
 # TODO: check code | NOT DONE
-# TODO: add comments | NOT DONE
 # TODO: add short doc strings | NOT DONE
 # TODO: analyse the logic and finding potential bugs and pitfalls | NOT DONE
 # TODO: unit test | NOT DONE
@@ -140,6 +139,7 @@ class KPY:
 
         weight_instances_iter = iter(weight_instances)
         first_weight_instance = next(weight_instances_iter)
+
         if not isinstance(first_weight_instance, KPY):
             raise TypeError(f"expected types: KPY instances or its sub-class instances"
                             f", but found {type(first_weight_instance).__name__!r}!")
@@ -152,6 +152,7 @@ class KPY:
             if not isinstance(weight_instance, KPY):
                 raise TypeError(f"expected types: KPY instances or its sub-class instances"
                                 f", but found {type(weight_instance).__name__!r}!")
+
             if weight_instance.standard != overall_standard:
                 raise ValueError(f"all KPY instances or its sub-class instances must use the same standard."
                                  f" expected standard: {overall_standard!r}, but found {weight_instance.standard!r}!")
@@ -167,6 +168,7 @@ class KPY:
     @classmethod
     def _yway_difference_per_kyat_between_standards(cls, standard_1: str, standard_2: str) -> Decimal:
         valid_standards = _CONVERSION_FACTORS.keys()
+
         if standard_1 not in valid_standards:
             valid_standards_str = map(repr, valid_standards)
             raise ValueError(f"provided standards must be one of these values: {'or '.join(valid_standards_str)}!")
@@ -282,7 +284,6 @@ class KPY:
         previous_standard_value = self.standard
 
         if new_standard_value != previous_standard_value:
-
             # Convert everything to yway unit for standard conversion
             weight_in_yway_unit = self.to_yway_unit()
             weight_in_kyat_unit = self.to_kyat_unit()
@@ -330,9 +331,11 @@ class KPY:
 
     def _setter_for_standard_attribute(self, standard_value: str) -> None:
         valid_standards = _CONVERSION_FACTORS.keys()
+
         if standard_value not in valid_standards:
             valid_standards_str = map(repr, valid_standards)
             raise ValueError(f"standard must be one of these values: {'or '.join(valid_standards_str)}!")
+
         setattr(self, "_standard", standard_value)
 
     def _perform_comparison(self, other: Union[tuple, list, 'KPY'], operation: str, *,
@@ -486,9 +489,14 @@ class KPY:
 
 
 class ForeignKPY(KPY):
+
+    # Representation Method:
+
     def __repr__(self):
         return (f"ForeignKPY(kyat={self.repr_kyat!r}, pe={self.repr_pe!r}, yway={self.repr_yway!r}"
                 f", sign={self.sign!r}, standard={self.standard!r})")
+
+    # Class Methods (Public):
 
     @classmethod
     def from_gram_unit(cls, gram_value: Union[int, Decimal]) -> 'ForeignKPY':
@@ -512,6 +520,8 @@ class ForeignKPY(KPY):
         ounce_to_gram_unit = ounce_value * _ONE_OUNCE_IN_GRAM
         return cls.from_gram_unit(ounce_to_gram_unit)
 
+    # Instance Methods (Public):
+
     def to_gram_unit(self) -> Decimal:
         if self.standard != "MG1":
             raise ValueError(f"to_gram_unit method is only applicable for 'MG1' standard!")
@@ -523,6 +533,8 @@ class ForeignKPY(KPY):
 
     def to_ounce_unit(self) -> Decimal:
         return self.to_gram_unit() / _ONE_OUNCE_IN_GRAM
+
+    # Magic Methods:
 
     def __add__(self, other):
         return self._perform_addition_subtraction(other, "+", weight_cls=ForeignKPY)
@@ -565,9 +577,13 @@ class ForeignKPY(KPY):
 
 class ExtendedForeignKPY(ForeignKPY):
 
+    # Representation Method:
+
     def __repr__(self):
         return (f"ExtendedForeignKPY(kyat={self.repr_kyat!r}, pe={self.repr_pe!r}, yway={self.repr_yway!r}"
                 f", sign={self.sign!r}, standard={self.standard!r})")
+
+    # Instance Methods (Public):
 
     def calculate_price(self, *,
                         price_per_kyat: Union[int, Decimal] = None,
@@ -628,6 +644,8 @@ class ExtendedForeignKPY(ForeignKPY):
 
         return (loss_yway * one_kyat_in_yway) / self.to_yway_unit()
 
+    # Magic Methods:
+
     def __add__(self, other):
         return self._perform_addition_subtraction(other, "+", weight_cls=ExtendedForeignKPY)
 
@@ -668,6 +686,9 @@ class ExtendedForeignKPY(ForeignKPY):
 
 
 class PeitKPY(ExtendedForeignKPY):
+
+    # Initialization and Representation Methods:
+
     def __init__(self, peittha: Union[str, int, Decimal] = 0,
                  kyat: Union[str, int, Decimal] = 0,
                  pe: Union[str, int, Decimal] = 0,
@@ -686,6 +707,8 @@ class PeitKPY(ExtendedForeignKPY):
         return (f"{self._get_sign_str(self.sign)} {self.peittha} Peittha, {self.kyat} Kyat"
                 f", {self.pe} Pe, {self.yway} Yway ({self.standard})")
 
+    # Properties (Getters and Setters):
+
     @property
     def peittha(self) -> Decimal:
         return self._peittha
@@ -697,6 +720,8 @@ class PeitKPY(ExtendedForeignKPY):
     @peittha.setter
     def peittha(self, peittha_value) -> None:
         self._setter_for_weight_attribute("peittha", peittha_value)
+
+    # Instance Methods (Public):
 
     def is_empty_weight(self) -> bool:
         return not self.peittha and super().is_empty_weight()
@@ -725,9 +750,11 @@ class PeitKPY(ExtendedForeignKPY):
     def normalize(self) -> None:
         super().normalize()
         one_peittha_in_kyat = _CONVERSION_FACTORS[self.standard]["ONE_PEITTHA_IN_KYAT"]
-        abs_kyat = self.kyat  # No need to use abs function because this class only store absolute weight value
+        abs_kyat = self.kyat  # No need to use abs function because this class only store weight value as abs value
         self.peittha = abs_kyat // one_peittha_in_kyat
         self.kyat = abs_kyat % one_peittha_in_kyat
+
+    # Magic Methods:
 
     def __eq__(self, other):  # Override comparisons in PeitKPY but not in above subclasses? It is because I added a new
         return self._perform_comparison(other, "==", weight_cls=PeitKPY)  # weight attribute "Peittha" in this class
