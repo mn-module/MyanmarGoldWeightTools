@@ -61,6 +61,16 @@ _ONE_GRAM_IN_CARAT = Decimal("5")
 
 
 def set_kyat_to_gram_conversion(new_value: Union[int, Decimal]):
+    """
+    Set the conversion value for one Kyat in terms of grams.
+
+    After setting this new value, the function replaces the previously hardcoded value (e.g., 16.6) with the one
+    provided.
+
+    Note: Changing this value affects all subsequent weight calculations in the module that rely on the Kyat to gram
+    conversion rate.
+    """
+
     if not isinstance(new_value, (int, Decimal)):
         raise TypeError(f"expected type: 'int' or 'Decimal' for new_value"
                         f", but got {type(new_value).__name__!r} instead!")
@@ -73,6 +83,18 @@ def set_kyat_to_gram_conversion(new_value: Union[int, Decimal]):
 
 
 def add_standard(standard: str, one_pe_in_yway: Union[int, Decimal]):
+    """
+    Add a new standard to the module's conversion factors dictionary.
+
+    This function is designed to incorporate standards that are not already predefined in the module,
+    such as MG1 (common in Rangoon and most regions) and MG2 (predominant in Mandalay), which are included by default.
+    Users can add their standard by specifying its name and the conversion factor from Pe to Yway.
+
+    Note: The assumption is that the primary difference between standards lies in the Pe to Yway conversion rate,
+    similar to MG1 and MG2. If this assumption does not hold for certain standards, users are encouraged to report
+    such cases for further adjustments.
+    """
+
     if not isinstance(standard, str):
         raise TypeError(f"expected type: 'str' for standard"
                         f", but got {type(standard).__name__!r} instead!")
@@ -97,6 +119,8 @@ def add_standard(standard: str, one_pe_in_yway: Union[int, Decimal]):
 
 
 def remove_standard(standard: str):
+    """Remove a standard from the module's conversion factors dictionary."""
+
     if standard not in _CONVERSION_FACTORS:
         raise ValueError(f"standard {standard!r} does not exist!")
 
@@ -107,6 +131,18 @@ def remove_standard(standard: str):
 
 
 class KPY:
+    """
+    A class for representing and manipulating weights in traditional Myanmar units (Kyat, Pe, and Yway).
+
+    This class allows for the creation, representation, and arithmetic manipulation of weights in the specified units.
+    It supports operations like addition, subtraction, multiplication, and division, along with conversions between
+    different weight units. The class also enables changing the standard (e.g., MG1, MG2) for
+    accurate conversions and calculations.
+
+    The class handles weights with precision using the Decimal type and includes methods for setting and getting
+    the values of Kyat, Pe, and Yway. It also provides functionality for normalizing weights and performing comparisons
+    between different weight instances.
+    """
 
     # Initialization and Representation Methods:
 
@@ -134,7 +170,18 @@ class KPY:
     # Class Methods (Public):
 
     @classmethod
-    def summation(cls, weight_instances: Iterable['KPY']) -> 'KPY':
+    def summation(cls, weight_instances: Iterable['KPY'], *, common_standard: bool = None) -> 'KPY':
+        """
+        Calculate the sum of an iterable of weight instances and return a new weight instance representing their sum.
+
+        The sum is calculated in the Yway unit, and all instances must use the same standard. The method
+        normalizes the resulting sum into Kyat, Pe, and Yway units based on the common standard.
+
+        Note: The sign (positive or negative) of the resulting sum is determined by the overall arithmetic sum of the
+        instances. This class method is approximately 9.34 times faster than using the '+' and '+=' operators for
+        summing weights.
+        """
+
         result_in_yway_unit = 0
 
         weight_instances_iter = iter(weight_instances)
@@ -144,7 +191,8 @@ class KPY:
             raise TypeError(f"expected types: KPY instances or its sub-class instances"
                             f", but found {type(first_weight_instance).__name__!r}!")
 
-        overall_standard = first_weight_instance.standard
+        if not common_standard:
+            common_standard = first_weight_instance.standard
 
         result_in_yway_unit = result_in_yway_unit + first_weight_instance.to_yway_unit()
 
@@ -153,20 +201,22 @@ class KPY:
                 raise TypeError(f"expected types: KPY instances or its sub-class instances"
                                 f", but found {type(weight_instance).__name__!r}!")
 
-            if weight_instance.standard != overall_standard:
+            if weight_instance.standard != common_standard:
                 raise ValueError(f"all KPY instances or its sub-class instances must use the same standard."
-                                 f" expected standard: {overall_standard!r}, but found {weight_instance.standard!r}!")
+                                 f" expected standard: {common_standard!r}, but found {weight_instance.standard!r}!")
 
             result_in_yway_unit = result_in_yway_unit + weight_instance.to_yway_unit()
 
         result_weight_instance = cls(yway=abs(result_in_yway_unit), sign=cls._get_sign(result_in_yway_unit),
-                                     standard=overall_standard)
+                                     standard=common_standard)
         result_weight_instance.normalize()
         return result_weight_instance
 
     # Class Methods (Internal):
     @classmethod
     def _yway_difference_per_kyat_between_standards(cls, standard_1: str, standard_2: str) -> Decimal:
+        """Calculate and return the difference in Yway per Kyat between two different standards."""
+
         valid_standards = _CONVERSION_FACTORS.keys()
 
         if standard_1 not in valid_standards:
@@ -214,15 +264,15 @@ class KPY:
 
     @kyat.setter
     def kyat(self, kyat_value: Union[int, str, Decimal]) -> None:
-        self._setter_for_weight_attribute("kyat", kyat_value)
+        self._setter_for_weight_like_attribute("kyat", kyat_value)
 
     @pe.setter
     def pe(self, pe_value: Union[int, str, Decimal]) -> None:
-        self._setter_for_weight_attribute("pe", pe_value)
+        self._setter_for_weight_like_attribute("pe", pe_value)
 
     @yway.setter
     def yway(self, yway_value: Union[int, str, Decimal]) -> None:
-        self._setter_for_weight_attribute("yway", yway_value)
+        self._setter_for_weight_like_attribute("yway", yway_value)
 
     @sign.setter
     def sign(self, sign_value: int) -> None:
@@ -237,36 +287,86 @@ class KPY:
     # Instance Methods (Public):
 
     def is_empty_weight(self) -> bool:
+        """Check if the weight instance is empty, i.e. all weight-like attributes (Kyat, Pe, Yway) are zero."""
+
         return all((not self.kyat, not self.pe, not self.yway))
 
     def is_true_positive_weight(self) -> bool:
+        """
+        Check if the weight instance is actually positive.
+
+        Note: This instance method is made for sign checking, checking the sign attribute alone is not enough because of
+        the empty-weight case.
+        """
+
         return self.sign == 1 and not self.is_empty_weight()
 
     def is_true_negative_weight(self) -> bool:
+        """
+        Check if the weight instance is actually negative.
+
+        Note: This instance method is made for sign checking, checking the sign attribute alone is not enough because of
+        the empty-weight case.
+        """
+
         return self.sign == -1 and not self.is_empty_weight()
 
     def set_to_zero(self) -> None:
-        """Set all weight attributes to zero."""
+        """Set all weight-like attributes (Kyat, Pe, Yway) to zero."""
+
         self.kyat = 0
         self.pe = 0
         self.yway = 0
 
     def to_kyat_unit(self) -> Decimal:
+        """
+        Return the weight of the instance to its equivalent in Kyat unit.
+
+        This instance method calculates the total weight expressed in Kyat, considering the current values of Kyat, Pe,
+        and Yway attributes. The calculation is based on the conversion factors defined for the weight instance's
+        specified standard.
+        """
+
         return (self.kyat +
                 (self.pe / _CONVERSION_FACTORS[self.standard]["ONE_KYAT_IN_PE"]) +
                 (self.yway / _CONVERSION_FACTORS[self.standard]["ONE_KYAT_IN_YWAY"])) * self.sign
 
     def to_pe_unit(self) -> Decimal:
+        """
+        Return the weight of the instance to its equivalent in Pe unit.
+
+        This instance method calculates the total weight expressed in Pe, considering the current values of Kyat, Pe,
+        and Yway attributes. The calculation is based on the conversion factors defined for the weight instance's
+        specified standard.
+        """
+
         return ((self.kyat * _CONVERSION_FACTORS[self.standard]["ONE_KYAT_IN_PE"]) +
                 self.pe +
                 (self.yway / _CONVERSION_FACTORS[self.standard]["ONE_PE_IN_YWAY"])) * self.sign
 
     def to_yway_unit(self) -> Decimal:
+        """
+        Return the weight of the instance to its equivalent in Yway unit.
+
+        This instance method calculates the total weight expressed in Yway, considering the current values of Kyat, Pe,
+        and Yway attributes. The calculation is based on the conversion factors defined for the weight instance's
+        specified standard.
+        """
+
         return ((self.kyat * _CONVERSION_FACTORS[self.standard]["ONE_KYAT_IN_YWAY"]) +
                 (self.pe * _CONVERSION_FACTORS[self.standard]["ONE_PE_IN_YWAY"]) +
                 self.yway) * self.sign
 
     def normalize(self) -> None:
+        """
+        Normalize the weight instance.
+
+        This instance method adjusts the weight-like attributes (Kyat, Pe, Yway) to ensure they are within the
+        standard range for each unit based on the instance's current standard. The normalization process converts
+        the total weight into Yway, then redistributes it among Kyat, Pe, and Yway, maintaining the proper conversion
+        ratios.
+        """
+
         # Conversation factors
         one_pe_in_yway = Decimal(_CONVERSION_FACTORS[self.standard]["ONE_PE_IN_YWAY"])
         one_kyat_in_yway = Decimal(_CONVERSION_FACTORS[self.standard]["ONE_KYAT_IN_YWAY"])
@@ -281,6 +381,10 @@ class KPY:
         self.yway = remaining_yway % one_pe_in_yway
 
     def change_standard(self, new_standard_value: str) -> None:
+        """
+        Change the standard of the weight instance and adjust the weight-like attributes (Kyat, Pe, Yway) accordingly.
+        """
+
         previous_standard_value = self.standard
 
         if new_standard_value != previous_standard_value:
@@ -303,8 +407,8 @@ class KPY:
 
     # Instance Methods (Internal):
 
-    def _setter_for_weight_attribute(self, attribute_name: str,
-                                     value: Union[str, int, Decimal]) -> None:
+    def _setter_for_weight_like_attribute(self, attribute_name: str,
+                                          value: Union[str, int, Decimal]) -> None:
 
         internal_attribute_name = f"_{attribute_name}"
         internal_repr_attribute_name = f"_repr_{attribute_name}"
@@ -719,7 +823,7 @@ class PeitKPY(ExtendedForeignKPY):
 
     @peittha.setter
     def peittha(self, peittha_value) -> None:
-        self._setter_for_weight_attribute("peittha", peittha_value)
+        self._setter_for_weight_like_attribute("peittha", peittha_value)
 
     # Instance Methods (Public):
 
