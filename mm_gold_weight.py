@@ -141,7 +141,7 @@ class KPY:
 
     The class handles weights with precision using the Decimal type and includes methods for setting and getting
     the values of Kyat, Pe, and Yway. It also provides functionality for normalizing weights and performing comparisons
-    between different weight instances.
+    between different weight instances (KPYs).
     """
 
     # Initialization and Representation Methods:
@@ -172,7 +172,8 @@ class KPY:
     @classmethod
     def summation(cls, weight_instances: Iterable['KPY'], *, common_standard: bool = None) -> 'KPY':
         """
-        Calculate the sum of an iterable of weight instances and return a new weight instance representing their sum.
+        Calculate the sum of an iterable of weight instances (KPYs) and return a new weight instance representing their
+        sum.
 
         The sum is calculated in the Yway unit, and all instances must use the same standard. The method
         normalizes the resulting sum into Kyat, Pe, and Yway units based on the common standard.
@@ -409,6 +410,7 @@ class KPY:
 
     def _setter_for_weight_like_attribute(self, attribute_name: str,
                                           value: Union[str, int, Decimal]) -> None:
+        """Do necessary validations for the weight-like attributes and set the internal values."""
 
         internal_attribute_name = f"_{attribute_name}"
         internal_repr_attribute_name = f"_repr_{attribute_name}"
@@ -434,6 +436,8 @@ class KPY:
         setattr(self, internal_repr_attribute_name, value)
 
     def _setter_for_standard_attribute(self, standard_value: str) -> None:
+        """Do necessary validations for the standard attribute and set the internal value."""
+
         valid_standards = _CONVERSION_FACTORS.keys()
 
         if standard_value not in valid_standards:
@@ -444,6 +448,7 @@ class KPY:
 
     def _perform_comparison(self, other: Union[tuple, list, 'KPY'], operation: str, *,
                             weight_cls: type) -> bool:
+        """Do necessary steps and perform comparison operations between KPY instances or their subclasses."""
 
         if isinstance(other, (tuple, list)):
             other = weight_cls(*other)
@@ -465,6 +470,8 @@ class KPY:
     def _perform_addition_subtraction(self, other: Union[tuple, list, 'KPY'], operation: str,
                                       reverse: bool = False, in_place: bool = False, *,
                                       weight_cls: type) -> 'KPY':
+        """Do necessary steps and perform addition or subtraction operations on KPY instances or their subclasses."""
+
         if reverse and in_place:
             raise ValueError("Invalid method call: trying to do reverse and in_place at the same time!")
 
@@ -500,6 +507,7 @@ class KPY:
 
     def _perform_multiplication_division(self, scalar: Union[int, Decimal], operation: str,
                                          in_place: bool = False, *, weight_cls: Union[None, type]) -> 'KPY':
+        """Do necessary steps and perform multiplication or division operations on KPY instances with a scalar value."""
 
         if not isinstance(scalar, (int, Decimal)):
             return NotImplemented
@@ -604,6 +612,12 @@ class ForeignKPY(KPY):
 
     @classmethod
     def from_gram_unit(cls, gram_value: Union[int, Decimal]) -> 'ForeignKPY':
+        """
+        Construct a ForeignKPY instance from provided gram unit.
+
+        Note: the constructed instance standard will be 'MG1'.
+        """
+
         # Convert the value to the kyat unit
         weight_in_kyat_unit = gram_value / _ONE_KYAT_IN_GRAM_MG1
 
@@ -616,26 +630,58 @@ class ForeignKPY(KPY):
 
     @classmethod
     def from_carat_unit(cls, carat_value: Union[int, Decimal]) -> 'ForeignKPY':
+        """
+        Construct a ForeignKPY instance from carat unit.
+
+        Note: it will convert from carat to gram unit first, then Myanmar traditional unit. The constructed instance
+        standard will be 'MG1'.
+        """
+
         carat_to_gram_unit = carat_value / _ONE_GRAM_IN_CARAT
         return cls.from_gram_unit(carat_to_gram_unit)
 
     @classmethod
     def from_ounce_unit(cls, ounce_value: Union[int, Decimal]) -> 'ForeignKPY':
+        """
+        Construct a ForeignKPY instance from provided ounce unit.
+
+        Note: it will convert from ounce to gram unit first, then Myanmar traditional unit. The constructed instance
+        standard will be 'MG1'.
+        """
+
         ounce_to_gram_unit = ounce_value * _ONE_OUNCE_IN_GRAM
         return cls.from_gram_unit(ounce_to_gram_unit)
 
     # Instance Methods (Public):
 
     def to_gram_unit(self) -> Decimal:
+        """
+        Convert from Myanmar traditional unit to gram unit.
+
+        Note: the instance standard must be 'MG1' before conversion.
+        """
+
         if self.standard != "MG1":
             raise ValueError(f"to_gram_unit method is only applicable for 'MG1' standard!")
 
         return self.to_kyat_unit() * _ONE_KYAT_IN_GRAM_MG1
 
     def to_carat_unit(self) -> Decimal:
+        """
+        Convert from Myanmar traditional unit to carat unit.
+
+        Note: the instance standard must be 'MG1' before conversion.
+        """
+
         return self.to_gram_unit() * _ONE_GRAM_IN_CARAT
 
     def to_ounce_unit(self) -> Decimal:
+        """
+        Convert from Myanmar traditional unit to ounce unit.
+
+        Note: the instance standard must be 'MG1' before conversion.
+        """
+
         return self.to_gram_unit() / _ONE_OUNCE_IN_GRAM
 
     # Magic Methods:
@@ -696,6 +742,7 @@ class ExtendedForeignKPY(ForeignKPY):
                         price_per_gram: Union[int, Decimal] = None,
                         price_per_carat: Union[int, Decimal] = None,
                         price_per_ounce: Union[int, Decimal] = None) -> Decimal:
+        """Calculate the price of ExtendedForeignKPY."""
 
         # Count how many price arguments are provided
         provided_prices = [arg for arg in (price_per_kyat, price_per_pe, price_per_yway,
@@ -728,6 +775,8 @@ class ExtendedForeignKPY(ForeignKPY):
             return self.to_ounce_unit() * price
 
     def calculate_loss_rate(self, new_weight: KPY) -> Decimal:
+        """Calculate the loss rate."""
+
         if not isinstance(new_weight, KPY):
             raise TypeError(f"expected type: KPY instance or its sub-class instance for new_weight"
                             f", but got {type(new_weight).__name__!r}!")
@@ -828,30 +877,75 @@ class PeitKPY(ExtendedForeignKPY):
     # Instance Methods (Public):
 
     def is_empty_weight(self) -> bool:
+        """Check if the weight instance is empty, i.e. all weight-like attributes (Peittha, Kyat, Pe, Yway) are zero."""
+
         return not self.peittha and super().is_empty_weight()
 
     def set_to_zero(self) -> None:
+        """Set all weight-like attributes (Peittha, Kyat, Pe, Yway) to zero."""
+
         self.peittha = 0
         super().set_to_zero()
 
     def to_peittha_unit(self) -> Decimal:
+        """
+        Return the weight of the instance to its equivalent in Peittha unit.
+
+        This instance method calculates the total weight expressed in Peittha, considering the current values of
+        Peittha, Kyat, Pe, and Yway attributes. The calculation is based on the conversion factors defined for
+        the weight instance's specified standard.
+        """
+
         kpy_to_peittha_unit = super().to_kyat_unit() / _CONVERSION_FACTORS[self.standard]["ONE_PEITTHA_IN_KYAT"]
         peittha = self.peittha * self.sign
         return kpy_to_peittha_unit + peittha
 
     def to_kyat_unit(self) -> Decimal:
+        """
+        Return the weight of the instance to its equivalent in Kyat unit.
+
+        This instance method calculates the total weight expressed in Kyat, considering the current values of
+        Peittha, Kyat, Pe, and Yway attributes. The calculation is based on the conversion factors defined for
+        the weight instance's specified standard.
+        """
+
         peittha_to_kyat_unit = (self.peittha * _CONVERSION_FACTORS[self.standard]["ONE_PEITTHA_IN_KYAT"]) * self.sign
         return peittha_to_kyat_unit + super().to_kyat_unit()
 
     def to_pe_unit(self) -> Decimal:
+        """
+        Return the weight of the instance to its equivalent in Pe unit.
+
+        This instance method calculates the total weight expressed in Pe, considering the current values of
+        Peittha, Kyat, Pe, and Yway attributes. The calculation is based on the conversion factors defined for
+        the weight instance's specified standard.
+        """
+
         peittha_to_pe_unit = (self.peittha * _CONVERSION_FACTORS[self.standard]["ONE_PEITTHA_IN_PE"]) * self.sign
         return peittha_to_pe_unit + super().to_pe_unit()
 
     def to_yway_unit(self) -> Decimal:
+        """
+        Return the weight of the instance to its equivalent in Yway unit.
+
+        This instance method calculates the total weight expressed in Yway, considering the current values of
+        Peittha, Kyat, Pe, and Yway attributes. The calculation is based on the conversion factors defined for
+        the weight instance's specified standard.
+        """
+
         peittha_to_yway_unit = (self.peittha * _CONVERSION_FACTORS[self.standard]["ONE_PEITTHA_IN_YWAY"]) * self.sign
         return peittha_to_yway_unit + super().to_yway_unit()
 
     def normalize(self) -> None:
+        """
+        Normalize the weight instance.
+
+        This instance method adjusts the weight-like attributes (Peittha, Kyat, Pe, Yway) to ensure they are within
+        the standard range for each unit based on the instance's current standard. The normalization process converts
+        the total weight into Yway, then redistributes it among Kyat, Pe, and Yway, maintaining the proper conversion
+        ratios.
+        """
+
         super().normalize()
         one_peittha_in_kyat = _CONVERSION_FACTORS[self.standard]["ONE_PEITTHA_IN_KYAT"]
         abs_kyat = self.kyat  # No need to use abs function because this class only store weight value as abs value
