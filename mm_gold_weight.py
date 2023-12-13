@@ -1,9 +1,7 @@
 # TODO: check code | NOT DONE
-# TODO: add short doc strings | NOT DONE
 # TODO: analyse the logic and finding potential bugs and pitfalls | NOT DONE
 # TODO: unit test | NOT DONE
 # TODO: benchmark test | NOT DONE
-# TODO: writing full documentation | NOT DONE
 
 import decimal
 from decimal import Decimal
@@ -601,6 +599,11 @@ class KPY:
 
 
 class ForeignKPY(KPY):
+    """
+    The ForeignKPY class is a subclass of the KPY class, designed specifically for handling and converting between
+    traditional Myanmar weight units (Kyat, Pe, and Yway) and various international units like grams, carats, and
+    ounces.
+    """
 
     # Representation Method:
 
@@ -726,6 +729,10 @@ class ForeignKPY(KPY):
 
 
 class ExtendedForeignKPY(ForeignKPY):
+    """
+    The ExtendedForeignKPY class extends the functionality of the ForeignKPY class, focusing on advanced features
+    like calculating the price of a weight in various units and determining loss rates.
+    """
 
     # Representation Method:
 
@@ -839,6 +846,10 @@ class ExtendedForeignKPY(ForeignKPY):
 
 
 class PeitKPY(ExtendedForeignKPY):
+    """
+    The PeitKPY class is an extension of the ExtendedForeignKPY class, adding a new dimension to weight representation
+    and calculations by introducing the Peittha unit, a traditional Myanmar weight unit.
+    """
 
     # Initialization and Representation Methods:
 
